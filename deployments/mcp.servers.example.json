@@ -1,0 +1,9 @@
+[
+  {
+    "id": "knowledge",
+    "url": "https://your-approved-mcp-server.example/mcp",
+    "allowed_user_ids": ["replace-with-your-own-user-id"],
+    "tools": [{"name": "search_knowledge", "read_only": true}],
+    "token_env": "KNOWLEDGE_MCP_TOKEN"
+  }
+]

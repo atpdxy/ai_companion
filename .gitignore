@@ -31,3 +31,23 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Companion monorepo: local credentials, environments, dependencies and test data
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+node_modules/
+dist/
+bin/
+test-results/
+playwright-report/
+*.log
+.coverage
+.local/
+.DS_Store

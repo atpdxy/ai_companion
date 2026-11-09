@@ -1,0 +1,86 @@
+name: zhixia-companion
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-companion}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/setup.ps1 first}
+      POSTGRES_DB: ${POSTGRES_DB:-companion}
+    ports: ["127.0.0.1:25432:5432"]
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    ports: ["127.0.0.1:26379:6379"]
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  ai:
+    build:
+      context: ../services/ai
+      dockerfile: Dockerfile
+    environment:
+      SERVICE_TOKEN: ${SERVICE_TOKEN:?Run scripts/setup.ps1 first}
+      LLM_MODE: ${LLM_MODE:-demo}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-40}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-2}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-700}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.7}
+      EMOTION_TIMEOUT_SECONDS: ${EMOTION_TIMEOUT_SECONDS:-12}
+      GENERATION_TIMEOUT_SECONDS: ${GENERATION_TIMEOUT_SECONDS:-65}
+      MEMORY_TIMEOUT_SECONDS: ${MEMORY_TIMEOUT_SECONDS:-10}
+      ASR_ENABLED: ${ASR_ENABLED:-false}
+      ASR_URL: ${ASR_URL:-https://aigw.telecomjs.com/api/v1/services/aigc/multimodal-generation/generation}
+      ASR_MODEL: ${ASR_MODEL:-qwen-audio-3.0-asr-flash}
+      ASR_API_KEY: ${ASR_API_KEY:-}
+      TTS_ENABLED: ${TTS_ENABLED:-false}
+      TTS_URL: ${TTS_URL:-https://aigw.telecomjs.com/api/v3/tts/unidirectional}
+      TTS_MODEL: ${TTS_MODEL:-seed-tts-2.0}
+      TTS_SPEAKER: ${TTS_SPEAKER:-zh_female_vv_uranus_bigtts}
+      TTS_API_KEY: ${TTS_API_KEY:-}
+      AUDIO_TIMEOUT_SECONDS: ${AUDIO_TIMEOUT_SECONDS:-75}
+      MCP_SERVERS_FILE: ${MCP_SERVERS_FILE:-}
+      MCP_TIMEOUT_SECONDS: ${MCP_TIMEOUT_SECONDS:-15}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz',timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  api:
+    build:
+      context: ../services/api
+      dockerfile: Dockerfile
+    environment:
+      API_ADDR: :8080
+      DATABASE_URL: postgres://${POSTGRES_USER:-companion}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-companion}?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      AI_URL: http://ai:8000
+      LLM_MODE: ${LLM_MODE:-demo}
+      ASR_ENABLED: ${ASR_ENABLED:-false}
+      TTS_ENABLED: ${TTS_ENABLED:-false}
+      SERVICE_TOKEN: ${SERVICE_TOKEN}
+      JWT_SECRET: ${JWT_SECRET:?Run scripts/setup.ps1 first}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:5173}
+    ports: ["127.0.0.1:18080:8080"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      ai: { condition: service_healthy }
+  web:
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile
+    ports: ["127.0.0.1:5173:80"]
+    depends_on: [api]
+volumes:
+  postgres_data:
